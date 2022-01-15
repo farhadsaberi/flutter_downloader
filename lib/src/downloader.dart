@@ -39,6 +39,8 @@ class FlutterDownloader {
     return null;
   }
 
+  bool get isInitialized => _initialized;
+
   ///
   /// Create a new download task
   ///
