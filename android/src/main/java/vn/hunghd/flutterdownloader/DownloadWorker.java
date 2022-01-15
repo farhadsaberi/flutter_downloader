@@ -1,12 +1,15 @@
 package vn.hunghd.flutterdownloader;
 
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -18,6 +21,7 @@ import android.net.Uri;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
@@ -47,10 +51,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import androidx.work.Configuration;
+import androidx.work.ForegroundInfo;
+import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -96,6 +104,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private boolean debug;
     private int lastProgress = 0;
     private int primaryId;
+    private String taskId;
     private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete;
     private long lastCallUpdateNotification = 0;
     private boolean saveInPublicStorage;
@@ -118,7 +127,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 SharedPreferences pref = context.getSharedPreferences(FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
                 long callbackHandle = pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
 
-                String appBundlePath =  FlutterInjector.instance().flutterLoader().findAppBundlePath();;
+                String appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath();
+
                 AssetManager assets = context.getAssets();
 
                 // We need to create an instance of `FlutterEngine` before looking up the
@@ -164,6 +174,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     @Override
     public void onStopped() {
         Context context = getApplicationContext();
+        unregisterButtonActionReceiver(context);
         dbHelper = TaskDbHelper.getInstance(context);
         taskDao = new TaskDao(dbHelper);
 
@@ -183,6 +194,11 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         Context context = getApplicationContext();
         dbHelper = TaskDbHelper.getInstance(context);
         taskDao = new TaskDao(dbHelper);
+
+//        Intent i = new Intent(context, buttonActionReceiver.getClass());
+//        context.sendBroadcast(i);
+        registerButtonActionReceiver(context);
+
 
         String url = getInputData().getString(ARG_URL);
         String filename = getInputData().getString(ARG_FILE_NAME);
@@ -213,6 +229,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         saveInPublicStorage = getInputData().getBoolean(ARG_SAVE_IN_PUBLIC_STORAGE, false);
 
         primaryId = task.primaryId;
+        taskId = task.taskId;
 
         setupNotification(context);
 
@@ -224,7 +241,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         File partialFile = new File(saveFilePath);
         if (partialFile.exists()) {
             isResume = true;
-            log("exists file for "+ filename + "automatic resuming...");
+            log("exists file for " + filename + "automatic resuming...");
         }
 
         try {
@@ -432,7 +449,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     }
 
                     if (clickToOpenDownloadedFile) {
-                        if(android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED)
+                        if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED)
                             return;
                         Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), savedFilePath, contentType);
                         if (intent != null) {
@@ -488,7 +505,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         File newFile = new File(savedDir, filename);
         try {
             boolean rs = newFile.createNewFile();
-            if(rs) {
+            if (rs) {
                 return newFile;
             } else {
                 logError("It looks like you are trying to save file in public storage but not setting 'saveInPublicStorage' to 'true'");
@@ -604,6 +621,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private void updateNotification(Context context, String title, int status, int progress, PendingIntent intent, boolean finalize) {
         sendUpdateProcessEvent(status, progress);
 
+        if (status == DownloadStatus.CANCELED){
+            return;
+        }
+
         // Show the notification
         if (showNotification) {
             // Create the notification
@@ -612,6 +633,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     .setContentIntent(intent)
                     .setOnlyAlertOnce(true)
                     .setAutoCancel(true)
+                    .addAction(buildButtonActions(context).get(0))
                     .setPriority(NotificationCompat.PRIORITY_LOW);
 
             if (status == DownloadStatus.RUNNING) {
@@ -674,6 +696,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             log("Update notification: {notificationId: " + primaryId + ", title: " + title + ", status: " + status + ", progress: " + progress + "}");
             NotificationManagerCompat.from(context).notify(primaryId, builder.build());
             lastCallUpdateNotification = System.currentTimeMillis();
+            setForegroundAsync(new ForegroundInfo(primaryId, builder.build()));
         }
     }
 
@@ -802,4 +825,35 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public interface CallbackUri {
         void invoke(Uri uri);
     }
+
+
+    private void registerButtonActionReceiver(Context context) {
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction("Cancel");
+        context.registerReceiver(buttonActionReceiver, intentFilter);
+    }
+
+    private void unregisterButtonActionReceiver(Context context) {
+        context.unregisterReceiver(buttonActionReceiver);
+    }
+
+    private List<NotificationCompat.Action> buildButtonActions(Context context) {
+        List<NotificationCompat.Action> result = new ArrayList<>();
+        Intent intent = new Intent("Cancel");
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        result.add(new NotificationCompat.Action.Builder(0, "Cancell", pendingIntent).build());
+        return result;
+    }
+
+    private final BroadcastReceiver buttonActionReceiver = new BroadcastReceiver() {
+        public void onReceive(@Nullable Context context, @Nullable Intent intent) {
+            try {
+                if (context != null) {
+                    WorkManager.getInstance(context).cancelWorkById(UUID.fromString(taskId));
+                }
+                Log.e(TAG, "Farhad Clickd");
+            } catch (Exception var4) {
+            }
+        }
+    };
 }
