@@ -445,26 +445,26 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.COMPLETE;
                 int storage = ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
                 PendingIntent pendingIntent = null;
-                if (status == DownloadStatus.COMPLETE) {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                        if (isImageOrVideoFile(contentType) && isExternalStoragePath(savedFilePath)) {
-                            addImageOrVideoToGallery(filename, savedFilePath, getContentTypeWithoutCharset(contentType));
-                        }
-                    }
-
-                    if (clickToOpenDownloadedFile) {
-                        if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED)
-                            return;
-                        Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), savedFilePath, contentType);
-                        if (intent != null) {
-                            log("Setting an intent to open the file " + savedFilePath);
-                            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_CANCEL_CURRENT;
-                            pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, intent, flags);
-                        } else {
-                            log("There's no application that can open the file " + savedFilePath);
-                        }
-                    }
-                }
+//                if (status == DownloadStatus.COMPLETE) {
+//                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+//                        if (isImageOrVideoFile(contentType) && isExternalStoragePath(savedFilePath)) {
+//                            addImageOrVideoToGallery(filename, savedFilePath, getContentTypeWithoutCharset(contentType));
+//                        }
+//                    }
+//
+//                    if (clickToOpenDownloadedFile) {
+//                        if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED)
+//                            return;
+//                        Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), savedFilePath, contentType);
+//                        if (intent != null) {
+//                            log("Setting an intent to open the file " + savedFilePath);
+//                            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_CANCEL_CURRENT;
+//                            pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, intent, flags);
+//                        } else {
+//                            log("There's no application that can open the file " + savedFilePath);
+//                        }
+//                    }
+//                }
                 taskDao.updateTask(getId().toString(), status, progress,lastCurrentByte, lastTotalByte);
                 updateNotification(context, filename, status, progress, lastCurrentByte, lastTotalByte, pendingIntent, true);
 
