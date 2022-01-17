@@ -144,11 +144,13 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         return request;
     }
 
-    private void sendUpdateProgress(String id, int status, int progress) {
+    private void sendUpdateProgress(String id, int status, int progress, int currentByte, int totalByte) {
         Map<String, Object> args = new HashMap<>();
         args.put("task_id", id);
         args.put("status", status);
         args.put("progress", progress);
+        args.put("currentByte", currentByte);
+        args.put("totalByte", totalByte);
         flutterChannel.invokeMethod("updateProgress", args);
     }
 
@@ -183,8 +185,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         WorkManager.getInstance(context).enqueue(request);
         String taskId = request.getId().toString();
         result.success(taskId);
-        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0);
-        taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename,
+        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, 0, 0);
+        taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, 0, 0, filename,
                 savedDir, headers, showNotification, openFileFromNotification, saveInPublicStorage);
     }
 
@@ -196,6 +198,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("task_id", task.taskId);
             item.put("status", task.status);
             item.put("progress", task.progress);
+            item.put("currentByte", task.currentByte);
+            item.put("totalByte", task.totalByte);
             item.put("url", task.url);
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
@@ -214,6 +218,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("task_id", task.taskId);
             item.put("status", task.status);
             item.put("progress", task.progress);
+            item.put("currentByte", task.currentByte);
+            item.put("totalByte", task.totalByte);
             item.put("url", task.url);
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
@@ -262,8 +268,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                             true, requiresStorageNotLow, task.saveInPublicStorage);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
-                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress);
-                    taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, false);
+                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte);
+                    taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte, false);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
                     taskDao.updateTask(taskId, false);
@@ -288,8 +294,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         false, requiresStorageNotLow, task.saveInPublicStorage);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
-                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress);
-                taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress, false);
+                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress,task.currentByte, task.totalByte);
+                taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress,task.currentByte, task.totalByte, false);
                 WorkManager.getInstance(context).enqueue(request);
             } else {
                 result.error("invalid_status", "only failed and canceled task can be retried", null);

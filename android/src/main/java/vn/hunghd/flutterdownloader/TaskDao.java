@@ -15,6 +15,8 @@ public class TaskDao {
             BaseColumns._ID,
             TaskContract.TaskEntry.COLUMN_NAME_TASK_ID,
             TaskContract.TaskEntry.COLUMN_NAME_PROGRESS,
+            TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE,
+            TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE,
             TaskContract.TaskEntry.COLUMN_NAME_STATUS,
             TaskContract.TaskEntry.COLUMN_NAME_URL,
             TaskContract.TaskEntry.COLUMN_NAME_FILE_NAME,
@@ -32,8 +34,8 @@ public class TaskDao {
         dbHelper = helper;
     }
 
-    public void insertOrUpdateNewTask(String taskId, String url, int status, int progress, String fileName,
-                                       String savedDir, String headers, boolean showNotification, boolean openFileFromNotification, boolean saveInPublicStorage) {
+    public void insertOrUpdateNewTask(String taskId, String url, int status, int progress, int currentByte, int totalByte, String fileName,
+                                      String savedDir, String headers, boolean showNotification, boolean openFileFromNotification, boolean saveInPublicStorage) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -41,6 +43,8 @@ public class TaskDao {
         values.put(TaskContract.TaskEntry.COLUMN_NAME_URL, url);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_STATUS, status);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_PROGRESS, progress);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_FILE_NAME, fileName);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_SAVED_DIR, savedDir);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_HEADERS, headers);
@@ -122,11 +126,13 @@ public class TaskDao {
         return result;
     }
 
-    public void updateTask(String taskId, int status, int progress) {
+    public void updateTask(String taskId, int status, int progress, int currentByte, int totalByte) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(TaskContract.TaskEntry.COLUMN_NAME_STATUS, status);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_PROGRESS, progress);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
 
         db.beginTransaction();
         try {
@@ -139,13 +145,15 @@ public class TaskDao {
         }
     }
 
-    public void updateTask(String currentTaskId, String newTaskId, int status, int progress, boolean resumable) {
+    public void updateTask(String currentTaskId, String newTaskId, int status, int progress, int currentByte, int totalByte, boolean resumable) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TASK_ID, newTaskId);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_STATUS, status);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_PROGRESS, progress);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_RESUMABLE, resumable ? 1 : 0);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED, System.currentTimeMillis());
 
@@ -216,6 +224,8 @@ public class TaskDao {
         String taskId = cursor.getString(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TASK_ID));
         int status = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_STATUS));
         int progress = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_PROGRESS));
+        int currentByte = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE));
+        int totalByte = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE));
         String url = cursor.getString(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_URL));
         String filename = cursor.getString(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_FILE_NAME));
         String savedDir = cursor.getString(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_SAVED_DIR));
@@ -226,7 +236,7 @@ public class TaskDao {
         int clickToOpenDownloadedFile = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION));
         long timeCreated = cursor.getLong(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED));
         int saveInPublicStorage = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE));
-        return new DownloadTask(primaryId, taskId, status, progress, url, filename, savedDir, headers,
+        return new DownloadTask(primaryId, taskId, status, progress, currentByte, totalByte, url, filename, savedDir, headers,
                 mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, timeCreated, saveInPublicStorage == 1);
     }
 
