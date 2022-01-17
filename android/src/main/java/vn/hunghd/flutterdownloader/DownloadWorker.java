@@ -86,7 +86,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private static final String TAG = DownloadWorker.class.getSimpleName();
     private static final int BUFFER_SIZE = 4096;
     private static final String CHANNEL_ID = "FLUTTER_DOWNLOADER_NOTIFICATION";
-    private static final int STEP_UPDATE = 5;
+    private static final int STEP_UPDATE = 2;
 
     private static final AtomicBoolean isolateStarted = new AtomicBoolean(false);
     private static final ArrayDeque<List> isolateQueue = new ArrayDeque<>();
@@ -847,7 +847,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         List<NotificationCompat.Action> result = new ArrayList<>();
         Intent intent = new Intent("Cancel");
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-        result.add(new NotificationCompat.Action.Builder(0, "Cancell", pendingIntent).build());
+        result.add(new NotificationCompat.Action.Builder(0, "Cancel", pendingIntent).build());
         return result;
     }
 
