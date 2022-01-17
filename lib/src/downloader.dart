@@ -127,6 +127,8 @@ class FlutterDownloader {
               status: DownloadTaskStatus(item['status']),
               progress: item['progress'],
               url: item['url'],
+              currentByte: item['currentByte'],
+              totalByte: item['totalByte'],
               filename: item['file_name'],
               savedDir: item['saved_dir'],
               timeCreated: item['time_created']))
@@ -169,6 +171,8 @@ class FlutterDownloader {
               taskId: item['task_id'],
               status: DownloadTaskStatus(item['status']),
               progress: item['progress'],
+              currentByte: item['currentByte'],
+              totalByte: item['totalByte'],
               url: item['url'],
               filename: item['file_name'],
               savedDir: item['saved_dir'],
