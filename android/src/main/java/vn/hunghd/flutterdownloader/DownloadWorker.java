@@ -183,7 +183,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         DownloadTask task = taskDao.loadTask(getId().toString());
         if (task.status == DownloadStatus.ENQUEUED) {
-            updateNotification(context, filename == null ? url : filename, DownloadStatus.CANCELED, -1, null, true);
+            updateNotification(context, filename == null ? url : filename, DownloadStatus.CANCELED, -1, 0, 0, null, true);
             taskDao.updateTask(getId().toString(), DownloadStatus.CANCELED, lastProgress);
         }
     }
@@ -233,7 +233,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         setupNotification(context);
 
-        updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING, task.progress, null, false);
+        updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING, task.progress, 0, 0, null, false);
         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, task.progress);
 
         //automatic resume for partial files. (if the workmanager unexpectedly quited in background)
@@ -251,7 +251,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             taskDao = null;
             return Result.success();
         } catch (Exception e) {
-            updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED, -1, null, true);
+            updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED, -1, 0, 0, null, true);
             taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress);
             e.printStackTrace();
             dbHelper = null;
@@ -419,9 +419,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 // using isStopped() to monitor canceling task
                 while ((bytesRead = inputStream.read(buffer)) != -1 && !isStopped()) {
                     count += bytesRead;
-                    int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
+                    long totalByte = (contentLength + downloadedBytes);
+                    int progress = (int) ((count * 100) / totalByte);
                     outputStream.write(buffer, 0, bytesRead);
-
                     if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE || progress == 100)
                             && progress != lastProgress) {
                         lastProgress = progress;
@@ -432,7 +432,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         // a new bunch of data fetched and a notification sent
                         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, progress);
 
-                        updateNotification(context, filename, DownloadStatus.RUNNING, progress, null, false);
+                        updateNotification(context, filename, DownloadStatus.RUNNING, progress, count, totalByte, null, false);
                     }
                 }
 
@@ -462,19 +462,19 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     }
                 }
                 taskDao.updateTask(getId().toString(), status, progress);
-                updateNotification(context, filename, status, progress, pendingIntent, true);
+                updateNotification(context, filename, status, progress, 0, 0, pendingIntent, true);
 
                 log(isStopped() ? "Download canceled" : "File downloaded");
             } else {
                 DownloadTask task = taskDao.loadTask(getId().toString());
                 int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.FAILED;
                 taskDao.updateTask(getId().toString(), status, lastProgress);
-                updateNotification(context, filename == null ? fileURL : filename, status, -1, null, true);
+                updateNotification(context, filename == null ? fileURL : filename, status, -1, 0, 0, null, true);
                 log(isStopped() ? "Download canceled" : "Server replied HTTP code: " + responseCode);
             }
         } catch (IOException e) {
             taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress);
-            updateNotification(context, filename == null ? fileURL : filename, DownloadStatus.FAILED, -1, null, true);
+            updateNotification(context, filename == null ? fileURL : filename, DownloadStatus.FAILED, -1, 0, 0, null, true);
             e.printStackTrace();
         } finally {
             if (outputStream != null) {
@@ -618,10 +618,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    private void updateNotification(Context context, String title, int status, int progress, PendingIntent intent, boolean finalize) {
-        sendUpdateProcessEvent(status, progress);
+    private void updateNotification(Context context, String title, int status, int progress, long currentByte, long totalByte, PendingIntent intent, boolean finalize) {
+        sendUpdateProcessEvent(status, progress, currentByte, totalByte);
 
-        if (status == DownloadStatus.CANCELED){
+        if (status == DownloadStatus.CANCELED) {
             return;
         }
 
@@ -700,13 +700,15 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    private void sendUpdateProcessEvent(int status, int progress) {
+    private void sendUpdateProcessEvent(int status, int progress, long currentByte, long totalByte) {
         final List<Object> args = new ArrayList<>();
         long callbackHandle = getInputData().getLong(ARG_CALLBACK_HANDLE, 0);
         args.add(callbackHandle);
         args.add(getId().toString());
         args.add(status);
         args.add(progress);
+        args.add(currentByte);
+        args.add(totalByte);
 
         synchronized (isolateStarted) {
             if (!isolateStarted.get()) {
@@ -851,7 +853,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 if (context != null) {
                     WorkManager.getInstance(context).cancelWorkById(UUID.fromString(taskId));
                 }
-                Log.e(TAG, "Farhad Clickd");
             } catch (Exception var4) {
             }
         }
