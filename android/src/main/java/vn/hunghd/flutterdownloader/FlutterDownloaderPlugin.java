@@ -84,6 +84,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             loadTasks(call, result);
         } else if (call.method.equals("loadTasksWithRawQuery")) {
             loadTasksWithRawQuery(call, result);
+        } else if (call.method.equals("loadTasksWithTaskId")) {
+            loadTasksWithTaskId(call, result);
         } else if (call.method.equals("cancel")) {
             cancel(call, result);
         } else if (call.method.equals("cancelAll")) {
@@ -226,6 +228,26 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("time_created", task.timeCreated);
             array.add(item);
         }
+        result.success(array);
+    }
+
+    private void loadTasksWithTaskId(MethodCall call, MethodChannel.Result result) {
+        String taskId = call.argument("task_id");
+        DownloadTask task = taskDao.loadTask(taskId);
+
+        List<Map> array = new ArrayList<>();
+        Map<String, Object> item = new HashMap<>();
+        item.put("task_id", task.taskId);
+        item.put("status", task.status);
+        item.put("progress", task.progress);
+        item.put("currentByte", task.currentByte);
+        item.put("totalByte", task.totalByte);
+        item.put("url", task.url);
+        item.put("file_name", task.filename);
+        item.put("saved_dir", task.savedDir);
+        item.put("time_created", task.timeCreated);
+        array.add(item);
+
         result.success(array);
     }
 
