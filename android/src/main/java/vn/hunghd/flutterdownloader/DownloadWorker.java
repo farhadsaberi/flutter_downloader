@@ -373,6 +373,13 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         }
                         if (filename == null || filename.isEmpty()) {
                             filename = url.substring(url.lastIndexOf("/") + 1);
+                            if (filename.contains("?pid=")) {
+                                StringBuilder buf = new StringBuilder(filename);
+                                int start = filename.lastIndexOf("?");
+                                int end = filename.length();
+                                buf.replace(start, end, "");
+                                filename = buf.toString();
+                            }
                             try {
                                 filename = URLDecoder.decode(filename, "UTF-8");
                             } catch (IllegalArgumentException e) {
