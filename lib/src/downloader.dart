@@ -203,7 +203,7 @@ class FlutterDownloader {
             url: result.first['url'],
             filename: result.first['file_name'],
             savedDir: result.first['saved_dir'],
-            timeCreated: result.first['time_created'])
+            timeCreated: result.first['time_created']);
       }
       return downloadTask;
     } on PlatformException catch (e) {
