@@ -186,7 +186,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         DownloadTask task = taskDao.loadTask(getId().toString());
         if (task.status == DownloadStatus.ENQUEUED) {
             updateNotification(context, filename == null ? url : filename, DownloadStatus.CANCELED, -1, 0, 0, null, true);
-            taskDao.updateTask(getId().toString(), DownloadStatus.CANCELED, lastProgress,lastCurrentByte, lastTotalByte);
+            taskDao.updateTask(getId().toString(), DownloadStatus.CANCELED, lastProgress, lastCurrentByte, lastTotalByte);
         }
     }
 
@@ -236,7 +236,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         setupNotification(context);
 
         updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING, task.progress, 0, 0, null, false);
-        taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, task.progress,lastCurrentByte, lastTotalByte);
+        taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, task.progress, lastCurrentByte, lastTotalByte);
 
         //automatic resume for partial files. (if the workmanager unexpectedly quited in background)
         String saveFilePath = savedDir + File.separator + filename;
@@ -254,7 +254,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             return Result.success();
         } catch (Exception e) {
             updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED, -1, 0, 0, null, true);
-            taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress,lastCurrentByte, lastTotalByte);
+            taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress, lastCurrentByte, lastTotalByte);
             e.printStackTrace();
             dbHelper = null;
             taskDao = null;
@@ -472,19 +472,19 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 //                        }
 //                    }
 //                }
-                taskDao.updateTask(getId().toString(), status, progress,lastCurrentByte, lastTotalByte);
+                taskDao.updateTask(getId().toString(), status, progress, lastCurrentByte, lastTotalByte);
                 updateNotification(context, filename, status, progress, lastCurrentByte, lastTotalByte, pendingIntent, true);
 
                 log(isStopped() ? "Download canceled" : "File downloaded");
             } else {
                 DownloadTask task = taskDao.loadTask(getId().toString());
                 int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.FAILED;
-                taskDao.updateTask(getId().toString(), status, lastProgress,lastCurrentByte, lastTotalByte);
+                taskDao.updateTask(getId().toString(), status, lastProgress, lastCurrentByte, lastTotalByte);
                 updateNotification(context, filename == null ? fileURL : filename, status, -1, 0, 0, null, true);
                 log(isStopped() ? "Download canceled" : "Server replied HTTP code: " + responseCode);
             }
         } catch (IOException e) {
-            taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress,lastCurrentByte, lastTotalByte);
+            taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress, lastCurrentByte, lastTotalByte);
             updateNotification(context, filename == null ? fileURL : filename, DownloadStatus.FAILED, -1, 0, 0, null, true);
             e.printStackTrace();
         } finally {
@@ -629,11 +629,21 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
+    private PendingIntent getPendingIntent(PackageManager pm) {
+        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_CANCEL_CURRENT;
+        Intent intent = pm.getLaunchIntentForPackage(getApplicationContext().getPackageName());
+        return PendingIntent.getActivity(getApplicationContext(), 0, intent, flags);
+    }
+
     private void updateNotification(Context context, String title, int status, int progress, long currentByte, long totalByte, PendingIntent intent, boolean finalize) {
         sendUpdateProcessEvent(status, progress, currentByte, totalByte);
 
         if (status == DownloadStatus.CANCELED) {
             return;
+        }
+
+        if (intent == null) {
+            intent = getPendingIntent(getApplicationContext().getPackageManager());
         }
 
         // Show the notification
