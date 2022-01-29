@@ -153,7 +153,7 @@ public class TaskDao {
             result = parseCursor(cursor);
         }
         cursor.close();
-        return result == null;
+        return result != null;
     }
 
     public DownloadTask hasDownload() {
