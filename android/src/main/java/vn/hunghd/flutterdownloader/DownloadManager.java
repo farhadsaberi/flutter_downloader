@@ -26,6 +26,7 @@ public class DownloadManager {
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.SECONDS)
                 .setInputData(new Data.Builder()
                         .putString(DownloadWorker.ARG_URL, downloadTask.url)
+                        .putString(DownloadWorker.ARG_CONTENT_ID, String.valueOf(downloadTask.contentId))
                         .putString(DownloadWorker.ARG_SAVED_DIR, downloadTask.savedDir)
                         .putString(DownloadWorker.ARG_FILE_NAME, downloadTask.filename)
                         .putString(DownloadWorker.ARG_HEADERS, downloadTask.headers)
@@ -40,6 +41,9 @@ public class DownloadManager {
                 .build();
         WorkManager.getInstance(context).enqueue(request);
         String taskId = request.getId().toString();
+        if (taskDao == null) {
+            taskDao = new TaskDao(TaskDbHelper.getInstance(context));
+        }
         taskDao.updateTask(taskId, DownloadStatus.ENQUEUED, 0, 0, 0, false, String.valueOf(downloadTask.contentId));
     }
 

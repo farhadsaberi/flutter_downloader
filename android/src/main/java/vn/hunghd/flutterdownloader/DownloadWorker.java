@@ -250,11 +250,12 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         try {
             downloadFile(context, url, savedDir, filename, headers, isResume,task.priority);
             cleanUp();
+            checkNextDownload();
             dbHelper = null;
             taskDao = null;
-            checkNextDownload();
             return Result.success();
         } catch (Exception e) {
+            logError(e.getMessage());
             updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED, -1, 0, 0, null, true);
             taskDao.updateTask(contentId, DownloadStatus.FAILED, lastProgress, lastCurrentByte, lastTotalByte, task.priority);
             e.printStackTrace();
@@ -489,7 +490,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 DownloadTask task = taskDao.loadTask(contentId);
                 int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.FAILED;
                 taskDao.updateTask(contentId, status, lastProgress, lastCurrentByte, lastTotalByte,priority);
-                updateNotification(context, filename == null ? fileURL : filename, status, -1, 0, 0, null, true);
+                updateNotification(context, filename == null ? fileURL : filename, status, lastProgress, lastCurrentByte, lastTotalByte, null, true);
                 log(isStopped() ? "Download canceled" : "Server replied HTTP code: " + responseCode);
             }
         } catch (IOException e) {

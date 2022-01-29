@@ -53,22 +53,26 @@ class _MyHomePageState extends State<MyHomePage> {
     {
       'name': 'Learning Android Studio',
       'link':
-          'http://barbra-coco.dyndns.org/student/learning_android_studio.pdf'
+          'http://barbra-coco.dyndns.org/student/learning_android_studio.pdf',
+      'contentId': "123"
     },
     {
       'name': 'Android Programming Cookbook',
       'link':
-          'http://enos.itcollege.ee/~jpoial/allalaadimised/reading/Android-Programming-Cookbook.pdf'
+          'http://enos.itcollege.ee/~jpoial/allalaadimised/reading/Android-Programming-Cookbook.pdf',
+      'contentId': "1234"
     },
     {
       'name': 'iOS Programming Guide',
       'link':
-          'http://darwinlogic.com/uploads/education/iOS_Programming_Guide.pdf'
+          'http://darwinlogic.com/uploads/education/iOS_Programming_Guide.pdf',
+      'contentId': "1235"
     },
     {
       'name': 'Objective-C Programming (Pre-Course Workbook',
       'link':
-          'https://www.bignerdranch.com/documents/objective-c-prereading-assignment.pdf'
+          'https://www.bignerdranch.com/documents/objective-c-prereading-assignment.pdf',
+      'contentId': "1236"
     },
   ];
 
@@ -76,22 +80,26 @@ class _MyHomePageState extends State<MyHomePage> {
     {
       'name': 'Arches National Park',
       'link':
-          'https://upload.wikimedia.org/wikipedia/commons/6/60/The_Organ_at_Arches_National_Park_Utah_Corrected.jpg'
+          'https://upload.wikimedia.org/wikipedia/commons/6/60/The_Organ_at_Arches_National_Park_Utah_Corrected.jpg',
+      'contentId': "1237"
     },
     {
       'name': 'Canyonlands National Park',
       'link':
-          'https://upload.wikimedia.org/wikipedia/commons/7/78/Canyonlands_National_Park%E2%80%A6Needles_area_%286294480744%29.jpg'
+          'https://upload.wikimedia.org/wikipedia/commons/7/78/Canyonlands_National_Park%E2%80%A6Needles_area_%286294480744%29.jpg',
+      'contentId': "1238"
     },
     {
       'name': 'Death Valley National Park',
       'link':
-          'https://upload.wikimedia.org/wikipedia/commons/b/b2/Sand_Dunes_in_Death_Valley_National_Park.jpg'
+          'https://upload.wikimedia.org/wikipedia/commons/b/b2/Sand_Dunes_in_Death_Valley_National_Park.jpg',
+      'contentId': "1239"
     },
     {
       'name': 'Gates of the Arctic National Park and Preserve',
       'link':
-          'https://upload.wikimedia.org/wikipedia/commons/e/e4/GatesofArctic.jpg'
+          'https://upload.wikimedia.org/wikipedia/commons/e/e4/GatesofArctic.jpg',
+      'contentId': "1245"
     }
   ];
 
@@ -99,12 +107,14 @@ class _MyHomePageState extends State<MyHomePage> {
     {
       'name': 'Big Buck Bunny',
       'link':
-          'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+          'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      'contentId': "1246"
     },
     {
       'name': 'Elephant Dream',
       'link':
-          'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
+          'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+      'contentId': "1248"
     }
   ];
 
@@ -150,9 +160,11 @@ class _MyHomePageState extends State<MyHomePage> {
       String? id = data[0];
       DownloadTaskStatus? status = data[1];
       int? progress = data[2];
+      int? contentId = data[3];
 
       if (_tasks != null && _tasks!.isNotEmpty) {
-        final task = _tasks!.firstWhere((task) => task.taskId == id);
+        final task = _tasks!
+            .firstWhere((task) => task.contentId == contentId.toString());
         setState(() {
           task.status = status;
           task.progress = progress;
@@ -173,7 +185,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     final SendPort send =
         IsolateNameServer.lookupPortByName('downloader_send_port')!;
-    send.send([id, status, progress]);
+    send.send([id, status, progress, contentId]);
   }
 
   @override
@@ -212,6 +224,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       onActionClick: (task) {
                         if (task.status == DownloadTaskStatus.undefined) {
                           _requestDownload(task);
+                          _prepare();
                         } else if (task.status == DownloadTaskStatus.running) {
                           _pauseDownload(task);
                         } else if (task.status == DownloadTaskStatus.paused) {
@@ -287,7 +300,7 @@ class _MyHomePageState extends State<MyHomePage> {
         headers: {"auth": "test_for_sql_encoding"},
         savedDir: _localPath,
         showNotification: true,
-        contentId: 123,
+        contentId: int.parse(task.contentId!),
         openFileFromNotification: true,
         saveInPublicStorage: true,
         priority: PriorityTaskStatus.force_download.value);
@@ -298,29 +311,35 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _pauseDownload(_TaskInfo task) async {
-    await FlutterDownloader.pause(taskId: task.taskId!, contentId: "123");
+    await FlutterDownloader.pause(
+        taskId: task.taskId!, contentId: task.contentId!);
   }
 
   void _resumeDownload(_TaskInfo task) async {
-    String? newTaskId = await FlutterDownloader.resume(contentId: "123");
+    String? newTaskId =
+        await FlutterDownloader.resume(contentId: task.contentId!);
     task.taskId = newTaskId;
   }
 
   void _retryDownload(_TaskInfo task) async {
-    String? newTaskId = await FlutterDownloader.retry(contentId: "123");
+    String? newTaskId =
+        await FlutterDownloader.retry(contentId: task.contentId!);
     task.taskId = newTaskId;
   }
 
   Future<bool> _openDownloadedFile(_TaskInfo? task) {
     if (task != null) {
-      return FlutterDownloader.open(contentId: "123");
+      return FlutterDownloader.open(contentId: task.contentId!);
     } else {
       return Future.value(false);
     }
   }
 
   void _delete(_TaskInfo task) async {
-    await FlutterDownloader.remove(contentId: "123",taskId: "123", shouldDeleteContent: true);
+    await FlutterDownloader.remove(
+        contentId: task.contentId!,
+        taskId: task.taskId!,
+        shouldDeleteContent: true);
     await _prepare();
     setState(() {});
   }
@@ -352,8 +371,10 @@ class _MyHomePageState extends State<MyHomePage> {
     _tasks = [];
     _items = [];
 
-    _tasks!.addAll(_documents.map((document) =>
-        _TaskInfo(name: document['name'], link: document['link'])));
+    _tasks!.addAll(_documents.map((document) => _TaskInfo(
+        name: document['name'],
+        link: document['link'],
+        contentId: document['contentId'])));
 
     _items.add(_ItemHolder(name: 'Documents'));
     for (int i = count; i < _tasks!.length; i++) {
@@ -361,8 +382,10 @@ class _MyHomePageState extends State<MyHomePage> {
       count++;
     }
 
-    _tasks!.addAll(_images
-        .map((image) => _TaskInfo(name: image['name'], link: image['link'])));
+    _tasks!.addAll(_images.map((image) => _TaskInfo(
+        name: image['name'],
+        link: image['link'],
+        contentId: image['contentId'])));
 
     _items.add(_ItemHolder(name: 'Images'));
     for (int i = count; i < _tasks!.length; i++) {
@@ -370,8 +393,10 @@ class _MyHomePageState extends State<MyHomePage> {
       count++;
     }
 
-    _tasks!.addAll(_videos
-        .map((video) => _TaskInfo(name: video['name'], link: video['link'])));
+    _tasks!.addAll(_videos.map((video) => _TaskInfo(
+        name: video['name'],
+        link: video['link'],
+        contentId: video['contentId'])));
 
     _items.add(_ItemHolder(name: 'Videos'));
     for (int i = count; i < _tasks!.length; i++) {
@@ -571,17 +596,19 @@ class DownloadItem extends StatelessWidget {
 class _TaskInfo {
   final String? name;
   final String? link;
+  final String? contentId;
 
   String? taskId;
   int? progress = 0;
   DownloadTaskStatus? status = DownloadTaskStatus.undefined;
 
-  _TaskInfo({this.name, this.link});
+  _TaskInfo({this.name, this.link, this.contentId});
 }
 
 class _ItemHolder {
   final String? name;
+  final String? contentId;
   final _TaskInfo? task;
 
-  _ItemHolder({this.name, this.task});
+  _ItemHolder({this.name, this.task, this.contentId});
 }

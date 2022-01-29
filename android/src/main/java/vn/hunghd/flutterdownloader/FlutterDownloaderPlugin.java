@@ -122,7 +122,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
 
     private WorkRequest buildRequest(String url, String savedDir, String filename, String headers,
                                      boolean showNotification, boolean openFileFromNotification,
-                                     boolean isResume, boolean requiresStorageNotLow, boolean saveInPublicStorage) {
+                                     boolean isResume, boolean requiresStorageNotLow, boolean saveInPublicStorage,String contentId) {
         WorkRequest request = new OneTimeWorkRequest.Builder(DownloadWorker.class)
                 .setConstraints(new Constraints.Builder()
                         .setRequiresStorageNotLow(requiresStorageNotLow)
@@ -132,6 +132,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.SECONDS)
                 .setInputData(new Data.Builder()
                         .putString(DownloadWorker.ARG_URL, url)
+                        .putString(DownloadWorker.ARG_CONTENT_ID, contentId)
                         .putString(DownloadWorker.ARG_SAVED_DIR, savedDir)
                         .putString(DownloadWorker.ARG_FILE_NAME, filename)
                         .putString(DownloadWorker.ARG_HEADERS, headers)
@@ -199,7 +200,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             result.success(taskId);
         } else {
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
-                    openFileFromNotification, false, requiresStorageNotLow, saveInPublicStorage);
+                    openFileFromNotification, false, requiresStorageNotLow, saveInPublicStorage,contentId);
             WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
             result.success(taskId);
@@ -311,7 +312,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                 if (partialFile.exists()) {
                     WorkRequest request = buildRequest(task.url, task.savedDir, task.filename,
                             task.headers, task.showNotification, task.openFileFromNotification,
-                            true, requiresStorageNotLow, task.saveInPublicStorage);
+                            true, requiresStorageNotLow, task.saveInPublicStorage,contentId);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
                     sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte, Integer.parseInt(contentId));
@@ -338,7 +339,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
                 WorkRequest request = buildRequest(task.url, task.savedDir, task.filename,
                         task.headers, task.showNotification, task.openFileFromNotification,
-                        false, requiresStorageNotLow, task.saveInPublicStorage);
+                        false, requiresStorageNotLow, task.saveInPublicStorage,contentId);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
                 sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress, task.currentByte, task.totalByte, Integer.parseInt(contentId));
@@ -455,7 +456,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             resume(call, result);
         } else if (task.status == DownloadStatus.UNDEFINED) {
             WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers, task.showNotification,
-                    task.openFileFromNotification, false, true, task.saveInPublicStorage);
+                    task.openFileFromNotification, false, true, task.saveInPublicStorage, String.valueOf(task.contentId));
             WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
             result.success(taskId);

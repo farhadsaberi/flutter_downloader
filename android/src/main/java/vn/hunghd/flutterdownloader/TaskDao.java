@@ -159,8 +159,9 @@ public class TaskDao {
     public DownloadTask hasDownload() {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
-        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ?";
-        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.START_DOWNLOAD)};
+        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ? AND " + TaskContract.TaskEntry.COLUMN_NAME_STATUS +
+                " = ?";
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.START_DOWNLOAD), String.valueOf(DownloadStatus.UNDEFINED)};
 
         Cursor cursor = db.query(
                 TaskContract.TaskEntry.TABLE_NAME,
@@ -193,7 +194,7 @@ public class TaskDao {
         } else if (status == DownloadStatus.COMPLETE) {
             values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, PriorityStatus.COMPLETED);
         } else {
-            values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, priority);
+            values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, PriorityStatus.READY_TO_DOWNLOAD);
         }
 
         db.beginTransaction();
