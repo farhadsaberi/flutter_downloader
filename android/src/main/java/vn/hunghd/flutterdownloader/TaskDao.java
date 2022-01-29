@@ -14,6 +14,7 @@ public class TaskDao {
     final private String[] projection = new String[]{
             BaseColumns._ID,
             TaskContract.TaskEntry.COLUMN_NAME_TASK_ID,
+            TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID,
             TaskContract.TaskEntry.COLUMN_NAME_PROGRESS,
             TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE,
             TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE,
@@ -27,6 +28,8 @@ public class TaskDao {
             TaskContract.TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION,
             TaskContract.TaskEntry.COLUMN_NAME_SHOW_NOTIFICATION,
             TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED,
+            TaskContract.TaskEntry.COLUMN_NAME_TIME_UPDATED,
+            TaskContract.TaskEntry.COLUMN_NAME_PRIORITY,
             TaskContract.TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE
     };
 
@@ -35,13 +38,15 @@ public class TaskDao {
     }
 
     public void insertOrUpdateNewTask(String taskId, String url, int status, int progress, int currentByte, int totalByte, String fileName,
-                                      String savedDir, String headers, boolean showNotification, boolean openFileFromNotification, boolean saveInPublicStorage) {
+                                      String savedDir, String headers, boolean showNotification, boolean openFileFromNotification, boolean saveInPublicStorage, int priority, int contentId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TASK_ID, taskId);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_URL, url);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_STATUS, status);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, priority);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID, contentId);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_PROGRESS, progress);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
@@ -101,11 +106,11 @@ public class TaskDao {
         return result;
     }
 
-    public DownloadTask loadTask(String taskId) {
+    public DownloadTask loadTask(String contentId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
-        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_TASK_ID + " = ?";
-        String[] whereArgs = new String[]{taskId};
+        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?";
+        String[] whereArgs = new String[]{contentId};
 
         Cursor cursor = db.query(
                 TaskContract.TaskEntry.TABLE_NAME,
@@ -126,17 +131,74 @@ public class TaskDao {
         return result;
     }
 
-    public void updateTask(String taskId, int status, int progress, int currentByte, int totalByte) {
+    public boolean hasDownloaded() {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " = ?";
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.START_DOWNLOAD)};
+
+        Cursor cursor = db.query(
+                TaskContract.TaskEntry.TABLE_NAME,
+                projection,
+                whereClause,
+                whereArgs,
+                null,
+                null,
+                BaseColumns._ID + " DESC",
+                "1"
+        );
+
+        DownloadTask result = null;
+        while (cursor.moveToNext()) {
+            result = parseCursor(cursor);
+        }
+        cursor.close();
+        return result == null;
+    }
+
+    public DownloadTask hasDownload() {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ?";
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.START_DOWNLOAD)};
+
+        Cursor cursor = db.query(
+                TaskContract.TaskEntry.TABLE_NAME,
+                projection,
+                whereClause,
+                whereArgs,
+                null,
+                null,
+                TaskContract.TaskEntry.COLUMN_NAME_PRIORITY,
+                "1"
+        );
+
+        DownloadTask result = null;
+        while (cursor.moveToNext()) {
+            result = parseCursor(cursor);
+        }
+        cursor.close();
+        return result;
+    }
+
+    public void updateTask(String contentId, int status, int progress, int currentByte, int totalByte, int priority) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(TaskContract.TaskEntry.COLUMN_NAME_STATUS, status);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_PROGRESS, progress);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
+        if (status == DownloadStatus.RUNNING) {
+            values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, PriorityStatus.START_DOWNLOAD);
+        } else if (status == DownloadStatus.COMPLETE) {
+            values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, PriorityStatus.COMPLETED);
+        } else {
+            values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, priority);
+        }
 
         db.beginTransaction();
         try {
-            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_TASK_ID + " = ?", new String[]{taskId});
+            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?", new String[]{contentId});
             db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
@@ -145,7 +207,7 @@ public class TaskDao {
         }
     }
 
-    public void updateTask(String currentTaskId, String newTaskId, int status, int progress, int currentByte, int totalByte, boolean resumable) {
+    public void updateTask(String newTaskId, int status, int progress, int currentByte, int totalByte, boolean resumable, String contentId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -155,11 +217,11 @@ public class TaskDao {
         values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_RESUMABLE, resumable ? 1 : 0);
-        values.put(TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED, System.currentTimeMillis());
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_TIME_UPDATED, System.currentTimeMillis());
 
         db.beginTransaction();
         try {
-            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_TASK_ID + " = ?", new String[]{currentTaskId});
+            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?", new String[]{contentId});
             db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
@@ -168,7 +230,7 @@ public class TaskDao {
         }
     }
 
-    public void updateTask(String taskId, boolean resumable) {
+    public void updateTask(String contentId, boolean resumable) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -176,7 +238,7 @@ public class TaskDao {
 
         db.beginTransaction();
         try {
-            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_TASK_ID + " = ?", new String[]{taskId});
+            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?", new String[]{contentId});
             db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
@@ -185,7 +247,24 @@ public class TaskDao {
         }
     }
 
-    public void updateTask(String taskId, String filename, String mimeType) {
+    public void updateTask(String contentId, int priority) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY, priority);
+
+        db.beginTransaction();
+        try {
+            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?", new String[]{contentId});
+            db.setTransactionSuccessful();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public void updateTask(String taskId, String filename, String mimeType, String contentId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -194,7 +273,7 @@ public class TaskDao {
 
         db.beginTransaction();
         try {
-            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_TASK_ID + " = ?", new String[]{taskId});
+            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?", new String[]{contentId});
             db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
@@ -235,9 +314,12 @@ public class TaskDao {
         int showNotification = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_SHOW_NOTIFICATION));
         int clickToOpenDownloadedFile = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION));
         long timeCreated = cursor.getLong(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED));
+        long timeUpdated = cursor.getLong(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TIME_UPDATED));
+        int priority = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY));
+        int contentId = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID));
         int saveInPublicStorage = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE));
         return new DownloadTask(primaryId, taskId, status, progress, currentByte, totalByte, url, filename, savedDir, headers,
-                mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, timeCreated, saveInPublicStorage == 1);
+                mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, timeCreated, saveInPublicStorage == 1, timeUpdated, priority, contentId);
     }
 
 }

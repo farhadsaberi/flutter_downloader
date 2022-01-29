@@ -28,13 +28,14 @@ void callbackDispatcher() {
       final int progress = args[3];
       final int currentByte = args[4];
       final int totalByte = args[5];
-      callback(
-          id, DownloadTaskStatus(status), progress, currentByte, totalByte);
+      final int contentId = args[6];
+      callback(id, DownloadTaskStatus(status), progress, currentByte, totalByte,
+          contentId);
     } else {
       final String id = args[1];
       final int status = args[2];
       final int progress = args[3];
-      callback(id, DownloadTaskStatus(status), progress, -1, -1);
+      callback(id, DownloadTaskStatus(status), progress, -1, -1, 0);
     }
   });
 

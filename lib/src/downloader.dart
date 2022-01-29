@@ -17,7 +17,7 @@ import 'models.dart';
 /// range of 0 and 100
 ///
 typedef void DownloadCallback(String id, DownloadTaskStatus status,
-    int progress, int currentByte, int totalByte);
+    int progress, int currentByte, int totalByte,int contentId);
 
 ///
 /// A convenient class wraps all api functions of **FlutterDownloader** plugin
@@ -28,7 +28,7 @@ class FlutterDownloader {
 
   static Future<Null> initialize({bool debug = true}) async {
     assert(!_initialized,
-    'FlutterDownloader.initialize() must be called only once!');
+        'FlutterDownloader.initialize() must be called only once!');
 
     WidgetsFlutterBinding.ensureInitialized();
 
@@ -70,14 +70,17 @@ class FlutterDownloader {
   ///
   /// an unique identifier of the new download task
   ///
-  static Future<String?> enqueue({required String url,
-    required String savedDir,
-    String? fileName,
-    Map<String, String>? headers,
-    bool showNotification = true,
-    bool openFileFromNotification = true,
-    bool requiresStorageNotLow = true,
-    bool saveInPublicStorage = false}) async {
+  static Future<String?> enqueue(
+      {required String url,
+      required String savedDir,
+      required int priority,
+      required int contentId,
+      String? fileName,
+      Map<String, String>? headers,
+      bool showNotification = true,
+      bool openFileFromNotification = true,
+      bool requiresStorageNotLow = true,
+      bool saveInPublicStorage = false}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
 
@@ -100,6 +103,8 @@ class FlutterDownloader {
         'open_file_from_notification': openFileFromNotification,
         'requires_storage_not_low': requiresStorageNotLow,
         'save_in_public_storage': saveInPublicStorage,
+        'priority': priority.toString(),
+        'contentId': contentId.toString(),
       });
       return taskId;
     } on PlatformException catch (e) {
@@ -121,17 +126,18 @@ class FlutterDownloader {
     try {
       List<dynamic> result = await _channel.invokeMethod('loadTasks');
       return result
-          .map((item) =>
-      new DownloadTask(
-          taskId: item['task_id'],
-          status: DownloadTaskStatus(item['status']),
-          progress: item['progress'],
-          url: item['url'],
-          currentByte: item['currentByte'],
-          totalByte: item['totalByte'],
-          filename: item['file_name'],
-          savedDir: item['saved_dir'],
-          timeCreated: item['time_created']))
+          .map((item) => new DownloadTask(
+              taskId: item['task_id'],
+              contentId: item['contentId'],
+              status: DownloadTaskStatus(item['status']),
+              priorityStatus: PriorityTaskStatus(item['priorityStatus']),
+              progress: item['progress'],
+              url: item['url'],
+              currentByte: item['currentByte'],
+              totalByte: item['totalByte'],
+              filename: item['file_name'],
+              savedDir: item['saved_dir'],
+              timeCreated: item['time_created']))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -167,17 +173,18 @@ class FlutterDownloader {
       List<dynamic> result = await _channel
           .invokeMethod('loadTasksWithRawQuery', {'query': query});
       return result
-          .map((item) =>
-      new DownloadTask(
-          taskId: item['task_id'],
-          status: DownloadTaskStatus(item['status']),
-          progress: item['progress'],
-          currentByte: item['currentByte'],
-          totalByte: item['totalByte'],
-          url: item['url'],
-          filename: item['file_name'],
-          savedDir: item['saved_dir'],
-          timeCreated: item['time_created']))
+          .map((item) => new DownloadTask(
+              taskId: item['task_id'],
+              contentId: item['contentId'],
+              status: DownloadTaskStatus(item['status']),
+              priorityStatus: PriorityTaskStatus(item['priorityStatus']),
+              progress: item['progress'],
+              currentByte: item['currentByte'],
+              totalByte: item['totalByte'],
+              url: item['url'],
+              filename: item['file_name'],
+              savedDir: item['saved_dir'],
+              timeCreated: item['time_created']))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -186,17 +193,19 @@ class FlutterDownloader {
   }
 
   static Future<DownloadTask?> loadTasksWithTaskId(
-      {required String taskId}) async {
+      {required String contentId}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {
       List<dynamic> result = await _channel
-          .invokeMethod('loadTasksWithTaskId', {'task_id': taskId});
+          .invokeMethod('loadTasksWithTaskId', {'contentId': contentId});
       DownloadTask? downloadTask;
       if (result != null && result.isNotEmpty) {
         return downloadTask = new DownloadTask(
             taskId: result.first['task_id'],
+            contentId: result.first['contentId'],
             status: DownloadTaskStatus(result.first['status']),
+            priorityStatus: PriorityTaskStatus(result.first['priorityStatus']),
             progress: result.first['progress'],
             currentByte: result.first['currentByte'],
             totalByte: result.first['totalByte'],
@@ -251,11 +260,13 @@ class FlutterDownloader {
   ///
   /// * `taskId`: unique identifier of a running download task
   ///
-  static Future<Null> pause({required String taskId}) async {
+  static Future<Null> pause(
+      {required String taskId, required String contentId}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {
-      return await _channel.invokeMethod('pause', {'task_id': taskId});
+      return await _channel
+          .invokeMethod('pause', {'task_id': taskId, 'contentId': contentId});
     } on PlatformException catch (e) {
       print(e.message);
       return null;
@@ -275,14 +286,14 @@ class FlutterDownloader {
   /// the partial download progress
   ///
   static Future<String?> resume({
-    required String taskId,
+    required String contentId,
     bool requiresStorageNotLow = true,
   }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {
       return await _channel.invokeMethod('resume', {
-        'task_id': taskId,
+        'contentId': contentId,
         'requires_storage_not_low': requiresStorageNotLow,
       });
     } on PlatformException catch (e) {
@@ -304,14 +315,14 @@ class FlutterDownloader {
   /// failed download progress from the beginning
   ///
   static Future<String?> retry({
-    required String taskId,
+    required String contentId,
     bool requiresStorageNotLow = true,
   }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {
       return await _channel.invokeMethod('retry', {
-        'task_id': taskId,
+        'contentId': contentId,
         'requires_storage_not_low': requiresStorageNotLow,
       });
     } on PlatformException catch (e) {
@@ -332,12 +343,15 @@ class FlutterDownloader {
   /// plugin remove the downloaded file. The default value is `false`.
   ///
   static Future<Null> remove(
-      {required String taskId, bool shouldDeleteContent = false}) async {
+      {required String contentId,required String taskId, bool shouldDeleteContent = false}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {
-      return await _channel.invokeMethod('remove',
-          {'task_id': taskId, 'should_delete_content': shouldDeleteContent});
+      return await _channel.invokeMethod('remove', {
+        'contentId': contentId,
+        'task_id': taskId,
+        'should_delete_content': shouldDeleteContent
+      });
     } on PlatformException catch (e) {
       print(e.message);
       return null;
@@ -365,11 +379,11 @@ class FlutterDownloader {
   /// - The current device has at least an application that can read the file
   /// type of the file
   ///
-  static Future<bool> open({required String taskId}) async {
+  static Future<bool> open({required String contentId}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {
-      return await _channel.invokeMethod('open', {'task_id': taskId});
+      return await _channel.invokeMethod('open', {'contentId': contentId});
     } on PlatformException catch (e) {
       print(e.message);
       return false;
@@ -430,7 +444,7 @@ class FlutterDownloader {
 
     final callbackHandle = PluginUtilities.getCallbackHandle(callback)!;
     assert(callbackHandle != null,
-    'callback must be a top-level or a static function');
+        'callback must be a top-level or a static function');
     _channel.invokeMethod(
         'registerCallback', <dynamic>[callbackHandle.toRawHandle()]);
   }

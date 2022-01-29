@@ -4,11 +4,13 @@ import android.provider.BaseColumns;
 
 public class TaskContract {
 
-    private TaskContract() {}
+    private TaskContract() {
+    }
 
     public static class TaskEntry implements BaseColumns {
         public static final String TABLE_NAME = "task";
         public static final String COLUMN_NAME_TASK_ID = "task_id";
+        public static final String COLUMN_NAME_CONTENT_ID = "content_id";
         public static final String COLUMN_NAME_STATUS = "status";
         public static final String COLUMN_NAME_PROGRESS = "progress";
         public static final String COLUMN_NAME_CURRENT_BYTE = "current_byte";
@@ -23,6 +25,8 @@ public class TaskContract {
         public static final String COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION = "open_file_from_notification";
         public static final String COLUMN_NAME_TIME_CREATED = "time_created";
         public static final String COLUMN_SAVE_IN_PUBLIC_STORAGE = "save_in_public_storage";
+        public static final String COLUMN_NAME_TIME_UPDATED = "time_updated";
+        public static final String COLUMN_NAME_PRIORITY = "priority";
     }
 
 }

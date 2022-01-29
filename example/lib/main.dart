@@ -165,8 +165,8 @@ class _MyHomePageState extends State<MyHomePage> {
     IsolateNameServer.removePortNameMapping('downloader_send_port');
   }
 
-  static void downloadCallback(
-      String id, DownloadTaskStatus status, int progress,int currentByte,int totalByte) {
+  static void downloadCallback(String id, DownloadTaskStatus status,
+      int progress, int currentByte, int totalByte, int contentId) {
     if (debug) {
       print(
           'Background Isolate Callback: task ($id) is in status ($status) and process ($progress)');
@@ -283,13 +283,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _requestDownload(_TaskInfo task) async {
     task.taskId = await FlutterDownloader.enqueue(
-      url: task.link!,
-      headers: {"auth": "test_for_sql_encoding"},
-      savedDir: _localPath,
-      showNotification: true,
-      openFileFromNotification: true,
-      saveInPublicStorage: true,
-    );
+        url: task.link!,
+        headers: {"auth": "test_for_sql_encoding"},
+        savedDir: _localPath,
+        showNotification: true,
+        contentId: 123,
+        openFileFromNotification: true,
+        saveInPublicStorage: true,
+        priority: PriorityTaskStatus.force_download.value);
   }
 
   void _cancelDownload(_TaskInfo task) async {
@@ -297,30 +298,29 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _pauseDownload(_TaskInfo task) async {
-    await FlutterDownloader.pause(taskId: task.taskId!);
+    await FlutterDownloader.pause(taskId: task.taskId!, contentId: "123");
   }
 
   void _resumeDownload(_TaskInfo task) async {
-    String? newTaskId = await FlutterDownloader.resume(taskId: task.taskId!);
+    String? newTaskId = await FlutterDownloader.resume(contentId: "123");
     task.taskId = newTaskId;
   }
 
   void _retryDownload(_TaskInfo task) async {
-    String? newTaskId = await FlutterDownloader.retry(taskId: task.taskId!);
+    String? newTaskId = await FlutterDownloader.retry(contentId: "123");
     task.taskId = newTaskId;
   }
 
   Future<bool> _openDownloadedFile(_TaskInfo? task) {
     if (task != null) {
-      return FlutterDownloader.open(taskId: task.taskId!);
+      return FlutterDownloader.open(contentId: "123");
     } else {
       return Future.value(false);
     }
   }
 
   void _delete(_TaskInfo task) async {
-    await FlutterDownloader.remove(
-        taskId: task.taskId!, shouldDeleteContent: true);
+    await FlutterDownloader.remove(contentId: "123",taskId: "123", shouldDeleteContent: true);
     await _prepare();
     setState(() {});
   }

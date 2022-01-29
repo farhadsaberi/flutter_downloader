@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.util.Log;
 
 import androidx.core.app.NotificationManagerCompat;
 
@@ -146,13 +147,18 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         return request;
     }
 
-    private void sendUpdateProgress(String id, int status, int progress, int currentByte, int totalByte) {
+    private void log(String message) {
+        Log.d(TAG, message);
+    }
+
+    private void sendUpdateProgress(String id, int status, int progress, int currentByte, int totalByte, int contentId) {
         Map<String, Object> args = new HashMap<>();
         args.put("task_id", id);
         args.put("status", status);
         args.put("progress", progress);
         args.put("currentByte", currentByte);
         args.put("totalByte", totalByte);
+        args.put("contentId", contentId);
         flutterChannel.invokeMethod("updateProgress", args);
     }
 
@@ -178,18 +184,29 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String savedDir = call.argument("saved_dir");
         String filename = call.argument("file_name");
         String headers = call.argument("headers");
+        String priority = call.argument("priority");
+        String contentId = call.argument("contentId");
+
         boolean showNotification = call.argument("show_notification");
         boolean openFileFromNotification = call.argument("open_file_from_notification");
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         boolean saveInPublicStorage = call.argument("save_in_public_storage");
-        WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
-                openFileFromNotification, false, requiresStorageNotLow, saveInPublicStorage);
-        WorkManager.getInstance(context).enqueue(request);
-        String taskId = request.getId().toString();
-        result.success(taskId);
-        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, 0, 0);
-        taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, 0, 0, filename,
-                savedDir, headers, showNotification, openFileFromNotification, saveInPublicStorage);
+        if (taskDao.hasDownloaded()) {
+            String taskId = UUID.randomUUID().toString();
+            sendUpdateProgress(taskId, DownloadStatus.UNDEFINED, 0, 0, 0, Integer.parseInt(contentId));
+            taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.UNDEFINED, 0, 0, 0, filename,
+                    savedDir, headers, showNotification, openFileFromNotification, saveInPublicStorage, Integer.parseInt(priority), Integer.parseInt(contentId));
+            result.success(taskId);
+        } else {
+            WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
+                    openFileFromNotification, false, requiresStorageNotLow, saveInPublicStorage);
+            WorkManager.getInstance(context).enqueue(request);
+            String taskId = request.getId().toString();
+            result.success(taskId);
+            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, 0, 0, Integer.parseInt(contentId));
+            taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, 0, 0, filename,
+                    savedDir, headers, showNotification, openFileFromNotification, saveInPublicStorage, PriorityStatus.START_DOWNLOAD, Integer.parseInt(contentId));
+        }
     }
 
     private void loadTasks(MethodCall call, MethodChannel.Result result) {
@@ -198,6 +215,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         for (DownloadTask task : tasks) {
             Map<String, Object> item = new HashMap<>();
             item.put("task_id", task.taskId);
+            item.put("contentId", task.contentId);
             item.put("status", task.status);
             item.put("progress", task.progress);
             item.put("currentByte", task.currentByte);
@@ -206,6 +224,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
             item.put("time_created", task.timeCreated);
+            item.put("priorityStatus", task.priority);
             array.add(item);
         }
         result.success(array);
@@ -219,6 +238,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             Map<String, Object> item = new HashMap<>();
             item.put("task_id", task.taskId);
             item.put("status", task.status);
+            item.put("contentId", task.contentId);
+            item.put("priorityStatus", task.priority);
             item.put("progress", task.progress);
             item.put("currentByte", task.currentByte);
             item.put("totalByte", task.totalByte);
@@ -232,13 +253,15 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     }
 
     private void loadTasksWithTaskId(MethodCall call, MethodChannel.Result result) {
-        String taskId = call.argument("task_id");
+        String taskId = call.argument("contentId");
         DownloadTask task = taskDao.loadTask(taskId);
 
         List<Map> array = new ArrayList<>();
         Map<String, Object> item = new HashMap<>();
         item.put("task_id", task.taskId);
         item.put("status", task.status);
+        item.put("priorityStatus", task.priority);
+        item.put("contentId", task.contentId);
         item.put("progress", task.progress);
         item.put("currentByte", task.currentByte);
         item.put("totalByte", task.totalByte);
@@ -263,18 +286,19 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     }
 
     private void pause(MethodCall call, MethodChannel.Result result) {
+        String contentId = call.argument("contentId");
         String taskId = call.argument("task_id");
         // mark the current task is cancelled to process pause request
         // the worker will depends on this flag to prepare data for resume request
-        taskDao.updateTask(taskId, true);
+        taskDao.updateTask(contentId, true);
         // cancel running task, this method causes WorkManager.isStopped() turning true and the download loop will be stopped
         WorkManager.getInstance(context).cancelWorkById(UUID.fromString(taskId));
         result.success(null);
     }
 
     private void resume(MethodCall call, MethodChannel.Result result) {
-        String taskId = call.argument("task_id");
-        DownloadTask task = taskDao.loadTask(taskId);
+        String contentId = call.argument("contentId");
+        DownloadTask task = taskDao.loadTask(contentId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         if (task != null) {
             if (task.status == DownloadStatus.PAUSED) {
@@ -290,14 +314,15 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                             true, requiresStorageNotLow, task.saveInPublicStorage);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
-                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte);
-                    taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte, false);
+                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte, Integer.parseInt(contentId));
+                    taskDao.updateTask(newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte, false, contentId);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
-                    taskDao.updateTask(taskId, false);
+                    taskDao.updateTask(contentId, false);
                     result.error("invalid_data", "not found partial downloaded data, this task cannot be resumed", null);
                 }
             } else {
+                checkStatus(call,result,task);
                 result.error("invalid_status", "only paused task can be resumed", null);
             }
         } else {
@@ -306,8 +331,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     }
 
     private void retry(MethodCall call, MethodChannel.Result result) {
-        String taskId = call.argument("task_id");
-        DownloadTask task = taskDao.loadTask(taskId);
+        String contentId = call.argument("contentId");
+        DownloadTask task = taskDao.loadTask(contentId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         if (task != null) {
             if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
@@ -316,10 +341,11 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         false, requiresStorageNotLow, task.saveInPublicStorage);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
-                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress,task.currentByte, task.totalByte);
-                taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress,task.currentByte, task.totalByte, false);
+                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress, task.currentByte, task.totalByte, Integer.parseInt(contentId));
+                taskDao.updateTask(newTaskId, DownloadStatus.ENQUEUED, task.progress, task.currentByte, task.totalByte, false, contentId);
                 WorkManager.getInstance(context).enqueue(request);
             } else {
+                checkStatus(call,result,task);
                 result.error("invalid_status", "only failed and canceled task can be retried", null);
             }
         } else {
@@ -328,7 +354,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     }
 
     private void open(MethodCall call, MethodChannel.Result result) {
-        String taskId = call.argument("task_id");
+        String taskId = call.argument("contentId");
         DownloadTask task = taskDao.loadTask(taskId);
         if (task != null) {
             if (task.status == DownloadStatus.COMPLETE) {
@@ -356,8 +382,9 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
 
     private void remove(MethodCall call, MethodChannel.Result result) {
         String taskId = call.argument("task_id");
+        String contentId = call.argument("contentId");
         boolean shouldDeleteContent = call.argument("should_delete_content");
-        DownloadTask task = taskDao.loadTask(taskId);
+        DownloadTask task = taskDao.loadTask(contentId);
         if (task != null) {
             if (task.status == DownloadStatus.ENQUEUED || task.status == DownloadStatus.RUNNING) {
                 WorkManager.getInstance(context).cancelWorkById(UUID.fromString(taskId));
@@ -421,5 +448,21 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             if (videoCursor != null) videoCursor.close();
         }
         if (imageCursor != null) imageCursor.close();
+    }
+
+    private void checkStatus(MethodCall call, MethodChannel.Result result, DownloadTask task) {
+        if (task.status == DownloadStatus.PAUSED) {
+            resume(call, result);
+        } else if (task.status == DownloadStatus.UNDEFINED) {
+            WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers, task.showNotification,
+                    task.openFileFromNotification, false, true, task.saveInPublicStorage);
+            WorkManager.getInstance(context).enqueue(request);
+            String taskId = request.getId().toString();
+            result.success(taskId);
+            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, 0, 0, Integer.parseInt(task.taskId));
+            taskDao.updateTask(String.valueOf(task.contentId), PriorityStatus.START_DOWNLOAD);
+        } else if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
+            retry(call, result);
+        }
     }
 }

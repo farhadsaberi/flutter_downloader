@@ -32,6 +32,32 @@ class DownloadTaskStatus {
   String toString() => 'DownloadTaskStatus($_value)';
 }
 
+class PriorityTaskStatus {
+  final int _value;
+
+  const PriorityTaskStatus(int value) : _value = value;
+
+  int get value => _value;
+
+  static PriorityTaskStatus from(int value) => PriorityTaskStatus(value);
+
+  static const force_download = const PriorityTaskStatus(2);
+  static const queue = const PriorityTaskStatus(3);
+
+  @override
+  bool operator ==(Object o) {
+    if (identical(this, o)) return true;
+
+    return o is PriorityTaskStatus && o._value == _value;
+  }
+
+  @override
+  int get hashCode => _value.hashCode;
+
+  @override
+  String toString() => 'PriorityTaskStatus($_value)';
+}
+
 ///
 /// A model class encapsulates all task information according to data in Sqlite
 /// database.
@@ -47,7 +73,9 @@ class DownloadTaskStatus {
 class DownloadTask {
   final String taskId;
   final DownloadTaskStatus status;
+  final PriorityTaskStatus priorityStatus;
   final int progress;
+  final int contentId;
   final String url;
   final String? filename;
   final String savedDir;
@@ -58,6 +86,8 @@ class DownloadTask {
   DownloadTask(
       {required this.taskId,
       required this.status,
+      required this.priorityStatus,
+      required this.contentId,
       required this.progress,
       required this.url,
       required this.filename,
@@ -68,5 +98,5 @@ class DownloadTask {
 
   @override
   String toString() =>
-      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, url: $url, filename: $filename, savedDir: $savedDir, timeCreated: $timeCreated,currentByte:$currentByte,totalByte:$totalByte)";
+      "DownloadTask(taskId: $taskId,contentId: $contentId, status: $status, priorityStatus: $priorityStatus, progress: $progress, url: $url, filename: $filename, savedDir: $savedDir, timeCreated: $timeCreated,currentByte:$currentByte,totalByte:$totalByte)";
 }
