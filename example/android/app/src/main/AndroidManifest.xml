@@ -16,6 +16,8 @@
         android:label="Flutter Downloader"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
