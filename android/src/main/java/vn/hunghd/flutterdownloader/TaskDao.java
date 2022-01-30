@@ -159,6 +159,11 @@ public class TaskDao {
     }
 
     public DownloadTask hasDownload() {
+
+        if (hasDownloaded()) {
+            return null;
+        }
+
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
         String whereClause = TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " != ? AND "
