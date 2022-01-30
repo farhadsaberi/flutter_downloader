@@ -512,7 +512,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         } else if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
             retry(call, result, String.valueOf(task.contentId));
         } else {
-            result.error(null);
+            result.error("invalid_status_download", "Fail", null);
         }
     }
 }
