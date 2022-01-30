@@ -505,11 +505,14 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                     task.openFileFromNotification, false, true, task.saveInPublicStorage, String.valueOf(task.contentId));
             WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
-            result.success(taskId);
             sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, 0, 0, Integer.parseInt(task.taskId));
             taskDao.updateTask(String.valueOf(task.contentId), PriorityStatus.DOWNLOADING);
+            taskDao.updateTaskId(taskId, String.valueOf(task.contentId));
+            result.success(taskId);
         } else if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
             retry(call, result, String.valueOf(task.contentId));
+        } else {
+            result.error(null);
         }
     }
 }
