@@ -27,6 +27,7 @@ public class TaskContract {
         public static final String COLUMN_SAVE_IN_PUBLIC_STORAGE = "save_in_public_storage";
         public static final String COLUMN_NAME_TIME_UPDATED = "time_updated";
         public static final String COLUMN_NAME_PRIORITY = "priority";
+        public static final String COLUMN_NAME_FORCE_TO_PAUSE = "force_pause";
     }
 
 }

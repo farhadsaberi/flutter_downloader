@@ -273,6 +273,22 @@ class FlutterDownloader {
     }
   }
 
+
+  ///
+  /// Pause all enqueued and running download tasks
+  ///
+
+  static Future<Null> pauseAll() async {
+    assert(_initialized, 'FlutterDownloader.initialize() must be called first');
+
+    try {
+      return await _channel.invokeMethod('pauseAll');
+    } on PlatformException catch (e) {
+      print(e.message);
+      return null;
+    }
+  }
+
   ///
   /// Resume a paused download task
   ///

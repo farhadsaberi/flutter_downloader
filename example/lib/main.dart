@@ -193,6 +193,14 @@ class _MyHomePageState extends State<MyHomePage> {
     return new Scaffold(
       appBar: new AppBar(
         title: new Text(widget.title!),
+        actions: [
+          InkWell(
+            onTap: (){
+              _pauseAll();
+            },
+            child: Text("Pause All"),
+          )
+        ],
       ),
       body: Builder(
           builder: (context) => _isLoading
@@ -302,12 +310,17 @@ class _MyHomePageState extends State<MyHomePage> {
         showNotification: true,
         contentId: int.parse(task.contentId!),
         openFileFromNotification: true,
-        saveInPublicStorage: true,
-        priority: PriorityTaskStatus.force_download.value);
+        saveInPublicStorage: false,
+        priority: PriorityTaskStatus.waiting.value);
   }
 
   void _cancelDownload(_TaskInfo task) async {
     await FlutterDownloader.cancel(taskId: task.taskId!);
+  }
+
+  void _pauseAll() async {
+    await FlutterDownloader.pauseAll();
+    _prepare();
   }
 
   void _pauseDownload(_TaskInfo task) async {
@@ -438,7 +451,8 @@ class _MyHomePageState extends State<MyHomePage> {
     var externalStorageDirPath;
     if (Platform.isAndroid) {
       try {
-        externalStorageDirPath = await AndroidPathProvider.downloadsPath;
+        final directory = await getTemporaryDirectory();
+        externalStorageDirPath = directory.path;
       } catch (e) {
         final directory = await getExternalStorageDirectory();
         externalStorageDirPath = directory?.path;

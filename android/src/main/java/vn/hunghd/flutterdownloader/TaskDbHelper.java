@@ -31,6 +31,7 @@ public class TaskDbHelper extends SQLiteOpenHelper {
                     TaskEntry.COLUMN_NAME_TIME_CREATED + " INTEGER DEFAULT 0, " +
                     TaskEntry.COLUMN_NAME_TIME_UPDATED + " INTEGER DEFAULT 0, " +
                     TaskEntry.COLUMN_NAME_PRIORITY + " INTEGER DEFAULT 0, " +
+                    TaskEntry.COLUMN_NAME_FORCE_TO_PAUSE + " INTEGER DEFAULT 0, " +
                     TaskEntry.COLUMN_NAME_CONTENT_ID + " INTEGER DEFAULT 0, " +
                     TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE + " TINYINT DEFAULT 0"
                     + ")";

@@ -41,7 +41,9 @@ class PriorityTaskStatus {
 
   static PriorityTaskStatus from(int value) => PriorityTaskStatus(value);
 
-  static const force_download = const PriorityTaskStatus(2);
+  static const completed = const PriorityTaskStatus(0);
+  static const downloading = const PriorityTaskStatus(1);
+  static const waiting = const PriorityTaskStatus(2);
   static const queue = const PriorityTaskStatus(3);
 
   @override
