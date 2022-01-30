@@ -207,11 +207,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             return;
         }
 
-        System.out.println("Farhad start download before " + contentId);
-
         DownloadTask task = taskDao.loadContent(contentId);
         if (task != null) {
-            System.out.println("Farhad start download 1");
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
                     openFileFromNotification, false, requiresStorageNotLow, saveInPublicStorage, contentId);
             WorkManager.getInstance(context).enqueue(request);
@@ -223,14 +220,12 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         }
 
         if (taskDao.hasDownloaded()) {
-            System.out.println("Farhad start download  2");
             String taskId = UUID.randomUUID().toString();
             sendUpdateProgress(taskId, DownloadStatus.UNDEFINED, 0, 0, 0, Integer.parseInt(contentId));
             taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.UNDEFINED, 0, 0, 0, filename,
                     savedDir, headers, showNotification, openFileFromNotification, saveInPublicStorage, Integer.parseInt(priority), Integer.parseInt(contentId));
             result.success(taskId);
         } else {
-            System.out.println("Farhad start download  3");
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
                     openFileFromNotification, false, requiresStorageNotLow, saveInPublicStorage, contentId);
             WorkManager.getInstance(context).enqueue(request);
