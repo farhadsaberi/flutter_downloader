@@ -206,8 +206,10 @@ public class TaskDao {
 
         String whereClause =
                 TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ? AND "
+                        + TaskContract.TaskEntry.COLUMN_NAME_SHOW_NOTIFICATION +
+                        " = ? And "
                         + TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE + " != ? ";
-        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), "1"};
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), "1", "1"};
 
         Cursor cursor = db.query(
                 TaskContract.TaskEntry.TABLE_NAME,
