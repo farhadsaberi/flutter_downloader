@@ -17,7 +17,7 @@ import 'models.dart';
 /// range of 0 and 100
 ///
 typedef void DownloadCallback(String id, DownloadTaskStatus status,
-    int progress, int currentByte, int totalByte,int contentId);
+    int progress, int currentByte, int totalByte, int contentId);
 
 ///
 /// A convenient class wraps all api functions of **FlutterDownloader** plugin
@@ -273,7 +273,6 @@ class FlutterDownloader {
     }
   }
 
-
   ///
   /// Pause all enqueued and running download tasks
   ///
@@ -310,6 +309,21 @@ class FlutterDownloader {
     try {
       return await _channel.invokeMethod('resume', {
         'contentId': contentId,
+        'requires_storage_not_low': requiresStorageNotLow,
+      });
+    } on PlatformException catch (e) {
+      print(e.message);
+      return null;
+    }
+  }
+
+  static Future<String?> resumeAll({
+    bool requiresStorageNotLow = true,
+  }) async {
+    assert(_initialized, 'FlutterDownloader.initialize() must be called first');
+
+    try {
+      return await _channel.invokeMethod('resumeAll', {
         'requires_storage_not_low': requiresStorageNotLow,
       });
     } on PlatformException catch (e) {
@@ -359,7 +373,9 @@ class FlutterDownloader {
   /// plugin remove the downloaded file. The default value is `false`.
   ///
   static Future<Null> remove(
-      {required String contentId,required String taskId, bool shouldDeleteContent = false}) async {
+      {required String contentId,
+      required String taskId,
+      bool shouldDeleteContent = false}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
     try {

@@ -271,7 +271,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private void checkNextDownload() {
-        DownloadTask downloadTask = taskDao.hasDownload();
+        DownloadTask downloadTask = taskDao.nextDownload();
         if (downloadTask != null) {
             new DownloadManager().startDownloadManger(getApplicationContext(), taskDao, downloadTask, getInputData().getLong(ARG_CALLBACK_HANDLE, 0), debug);
         }
@@ -888,7 +888,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             try {
                 if (context != null) {
                     pauseAllDownload = true;
-                    taskDao.updateTask(contentId, true);
+                    taskDao.updateTask(contentId, true, true);
                     WorkManager.getInstance(context).cancelWorkById(UUID.fromString(taskId));
                 }
             } catch (Exception ignored) {

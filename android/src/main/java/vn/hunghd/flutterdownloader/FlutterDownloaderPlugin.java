@@ -94,15 +94,17 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         } else if (call.method.equals("pause")) {
             pause(call, result);
         } else if (call.method.equals("resume")) {
-            resume(call, result);
+            resume(call, result, call.argument("contentId"));
         } else if (call.method.equals("retry")) {
-            retry(call, result);
+            retry(call, result, call.argument("contentId"));
         } else if (call.method.equals("open")) {
             open(call, result);
         } else if (call.method.equals("remove")) {
             remove(call, result);
         } else if (call.method.equals("pauseAll")) {
             pauseAll(call, result);
+        } else if (call.method.equals("resumeAll")) {
+            resumeAll(call, result);
         } else {
             result.notImplemented();
         }
@@ -319,19 +321,31 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         result.success(null);
     }
 
+    private void resumeAll(MethodCall call, MethodChannel.Result result) {
+        if (!taskDao.hasDownloaded()) {
+            DownloadTask downloadTask = taskDao.resumeAllDownload();
+            if (downloadTask != null) {
+                checkStatus(call, result, downloadTask);
+            } else {
+                result.success(null);
+            }
+        } else {
+            result.success(null);
+        }
+    }
+
     private void pause(MethodCall call, MethodChannel.Result result) {
         String contentId = call.argument("contentId");
         String taskId = call.argument("task_id");
         // mark the current task is cancelled to process pause request
         // the worker will depends on this flag to prepare data for resume request
-        taskDao.updateTask(contentId, true);
+        taskDao.updateTask(contentId, true, true);
         // cancel running task, this method causes WorkManager.isStopped() turning true and the download loop will be stopped
         WorkManager.getInstance(context).cancelWorkById(UUID.fromString(taskId));
         result.success(null);
     }
 
-    private void resume(MethodCall call, MethodChannel.Result result) {
-        String contentId = call.argument("contentId");
+    private void resume(MethodCall call, MethodChannel.Result result, String contentId) {
         DownloadTask task = taskDao.loadContent(contentId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         if (task != null) {
@@ -352,7 +366,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                     taskDao.updateTask(newTaskId, DownloadStatus.RUNNING, task.progress, task.currentByte, task.totalByte, false, contentId);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
-                    taskDao.updateTask(contentId, false);
+                    taskDao.updateTask(contentId, false, false);
                     result.error("invalid_data", "not found partial downloaded data, this task cannot be resumed", null);
                 }
             } else {
@@ -364,8 +378,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         }
     }
 
-    private void retry(MethodCall call, MethodChannel.Result result) {
-        String contentId = call.argument("contentId");
+    private void retry(MethodCall call, MethodChannel.Result result, String contentId) {
         DownloadTask task = taskDao.loadContent(contentId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         if (task != null) {
@@ -486,7 +499,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
 
     private void checkStatus(MethodCall call, MethodChannel.Result result, DownloadTask task) {
         if (task.status == DownloadStatus.PAUSED) {
-            resume(call, result);
+            resume(call, result, String.valueOf(task.contentId));
         } else if (task.status == DownloadStatus.UNDEFINED) {
             WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers, task.showNotification,
                     task.openFileFromNotification, false, true, task.saveInPublicStorage, String.valueOf(task.contentId));
@@ -496,7 +509,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, 0, 0, Integer.parseInt(task.taskId));
             taskDao.updateTask(String.valueOf(task.contentId), PriorityStatus.DOWNLOADING);
         } else if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
-            retry(call, result);
+            retry(call, result, String.valueOf(task.contentId));
         }
     }
 }

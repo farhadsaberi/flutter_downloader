@@ -28,6 +28,7 @@ public class TaskContract {
         public static final String COLUMN_NAME_TIME_UPDATED = "time_updated";
         public static final String COLUMN_NAME_PRIORITY = "priority";
         public static final String COLUMN_NAME_FORCE_TO_PAUSE = "force_pause";
+        public static final String COLUMN_NAME_USER_PAUSE = "user_pause";
     }
 
 }

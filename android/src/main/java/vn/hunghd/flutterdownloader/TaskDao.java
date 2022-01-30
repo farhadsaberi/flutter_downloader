@@ -26,6 +26,7 @@ public class TaskDao {
             TaskContract.TaskEntry.COLUMN_NAME_HEADERS,
             TaskContract.TaskEntry.COLUMN_NAME_MIME_TYPE,
             TaskContract.TaskEntry.COLUMN_NAME_RESUMABLE,
+            TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE,
             TaskContract.TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION,
             TaskContract.TaskEntry.COLUMN_NAME_SHOW_NOTIFICATION,
             TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED,
@@ -59,6 +60,7 @@ public class TaskDao {
         values.put(TaskContract.TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION, openFileFromNotification ? 1 : 0);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_RESUMABLE, 0);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_FORCE_TO_PAUSE, 0);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE, 0);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED, System.currentTimeMillis());
         values.put(TaskContract.TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE, saveInPublicStorage ? 1 : 0);
 
@@ -158,7 +160,7 @@ public class TaskDao {
         return result != null;
     }
 
-    public DownloadTask hasDownload() {
+    public DownloadTask nextDownload() {
 
         if (hasDownloaded()) {
             return null;
@@ -166,12 +168,46 @@ public class TaskDao {
 
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
-        String whereClause = TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " != ? AND "
-                +
+        String whereClause =
+                TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " != ? AND "
+                        +
+                        TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ? AND "
+                        + TaskContract.TaskEntry.COLUMN_NAME_STATUS +
+                        " = ? And "
+                        + TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE + " != ? ";
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(DownloadStatus.UNDEFINED), "1"};
+
+        Cursor cursor = db.query(
+                TaskContract.TaskEntry.TABLE_NAME,
+                projection,
+                whereClause,
+                whereArgs,
+                null,
+                null,
+                TaskContract.TaskEntry.COLUMN_NAME_PRIORITY,
+                "1"
+        );
+
+        DownloadTask result = null;
+        while (cursor.moveToNext()) {
+            result = parseCursor(cursor);
+        }
+        cursor.close();
+        return result;
+    }
+
+    public DownloadTask resumeAllDownload() {
+
+        if (hasDownloaded()) {
+            return null;
+        }
+
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+        String whereClause =
                 TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ? AND "
-                + TaskContract.TaskEntry.COLUMN_NAME_STATUS +
-                " = ?";
-        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(DownloadStatus.UNDEFINED)};
+                        + TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE + " != ? ";
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), "1"};
 
         Cursor cursor = db.query(
                 TaskContract.TaskEntry.TABLE_NAME,
@@ -249,6 +285,7 @@ public class TaskDao {
         values.put(TaskContract.TaskEntry.COLUMN_NAME_CURRENT_BYTE, currentByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TOTAL_BYTE, totalByte);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_FORCE_TO_PAUSE, 0);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE, 0);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_RESUMABLE, resumable ? 1 : 0);
         values.put(TaskContract.TaskEntry.COLUMN_NAME_TIME_UPDATED, System.currentTimeMillis());
 
@@ -282,11 +319,12 @@ public class TaskDao {
         }
     }
 
-    public void updateTask(String contentId, boolean resumable) {
+    public void updateTask(String contentId, boolean resumable, boolean userPause) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         ContentValues values = new ContentValues();
         values.put(TaskContract.TaskEntry.COLUMN_NAME_RESUMABLE, resumable ? 1 : 0);
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE, userPause ? 1 : 0);
 
         db.beginTransaction();
         try {
@@ -385,10 +423,11 @@ public class TaskDao {
         long timeUpdated = cursor.getLong(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TIME_UPDATED));
         int priority = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_PRIORITY));
         int forcePause = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_FORCE_TO_PAUSE));
+        int userPause = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE));
         int contentId = cursor.getInt(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID));
         int saveInPublicStorage = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE));
         return new DownloadTask(primaryId, taskId, status, progress, currentByte, totalByte, url, filename, savedDir, headers,
-                mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, timeCreated, saveInPublicStorage == 1, timeUpdated, priority, contentId, forcePause == 1);
+                mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, timeCreated, saveInPublicStorage == 1, timeUpdated, priority, contentId, forcePause == 1, userPause == 1);
     }
 
 }

@@ -16,6 +16,7 @@ public class DownloadTask {
     String mimeType;
     boolean resumable;
     boolean forcePause;
+    boolean userPause;
     boolean showNotification;
     boolean openFileFromNotification;
     long timeCreated;
@@ -23,7 +24,7 @@ public class DownloadTask {
     boolean saveInPublicStorage;
 
     DownloadTask(int primaryId, String taskId, int status, int progress, int currentByte, int totalByte, String url, String filename, String savedDir,
-                 String headers, String mimeType, boolean resumable, boolean showNotification, boolean openFileFromNotification, long timeCreated, boolean saveInPublicStorage, long timeUpdated, int priority, int contentId, boolean forcePause) {
+                 String headers, String mimeType, boolean resumable, boolean showNotification, boolean openFileFromNotification, long timeCreated, boolean saveInPublicStorage, long timeUpdated, int priority, int contentId, boolean forcePause, boolean userPause) {
         this.primaryId = primaryId;
         this.taskId = taskId;
         this.status = status;
@@ -43,11 +44,12 @@ public class DownloadTask {
         this.priority = priority;
         this.contentId = contentId;
         this.forcePause = forcePause;
+        this.userPause = userPause;
         this.saveInPublicStorage = saveInPublicStorage;
     }
 
     @Override
     public String toString() {
-        return "DownloadTask{taskId=" + taskId + ",status=" + status + ",progress=" + progress + ",currentByte=" + currentByte + ",totalByte=" + totalByte + ",url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",headers=" + headers + ", saveInPublicStorage= " + saveInPublicStorage + ", time_updated= " + timeUpdated + ", priority= " + priority + ", contentId= " + contentId + ", forcePause= " + forcePause + "}";
+        return "DownloadTask{taskId=" + taskId + ",status=" + status + ",progress=" + progress + ",currentByte=" + currentByte + ",totalByte=" + totalByte + ",url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",headers=" + headers + ", saveInPublicStorage= " + saveInPublicStorage + ", time_updated= " + timeUpdated + ", priority= " + priority + ", contentId= " + contentId + ", forcePause= " + forcePause + ", userPause= " + userPause + "}";
     }
 }
