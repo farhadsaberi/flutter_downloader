@@ -486,6 +486,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 DownloadTask task = taskDao.loadContent(contentId);
                 int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.FAILED;
                 taskDao.updateTask(contentId, status, lastProgress, lastCurrentByte, lastTotalByte, priority);
+                if (responseCode > 400) {
+                    taskDao.updateTaskUserPause(contentId, true);
+                }
                 updateNotification(context, filename == null ? fileURL : filename, status, lastProgress, lastCurrentByte, lastTotalByte, null, true);
                 log(isStopped() ? "Download canceled" : "Server replied HTTP code: " + responseCode);
             }

@@ -341,6 +341,23 @@ public class TaskDao {
         }
     }
 
+    public void updateTaskUserPause(String contentId, boolean userPause) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE, userPause ? 1 : 0);
+
+        db.beginTransaction();
+        try {
+            db.update(TaskContract.TaskEntry.TABLE_NAME, values, TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID + " = ?", new String[]{contentId});
+            db.setTransactionSuccessful();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
     public void updateTask(String contentId, int priority) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
