@@ -160,7 +160,7 @@ public class TaskDao {
         return result != null;
     }
 
-    public DownloadTask nextDownload() {
+    public DownloadTask nextDownload(String contentId) {
 
         if (hasDownloaded()) {
             return null;
@@ -174,8 +174,10 @@ public class TaskDao {
                         TaskContract.TaskEntry.COLUMN_NAME_PRIORITY + " > ? AND "
                         + TaskContract.TaskEntry.COLUMN_NAME_STATUS +
                         " = ? And "
+                        + TaskContract.TaskEntry.COLUMN_NAME_CONTENT_ID +
+                        " != ? And "
                         + TaskContract.TaskEntry.COLUMN_NAME_USER_PAUSE + " != ? ";
-        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(DownloadStatus.UNDEFINED), "1"};
+        String[] whereArgs = new String[]{String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(PriorityStatus.DOWNLOADING), String.valueOf(DownloadStatus.UNDEFINED), contentId, "1"};
 
         Cursor cursor = db.query(
                 TaskContract.TaskEntry.TABLE_NAME,

@@ -263,7 +263,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private void checkNextDownload() {
-        DownloadTask downloadTask = taskDao.nextDownload();
+        DownloadTask downloadTask = taskDao.nextDownload(contentId);
         if (downloadTask != null) {
             new DownloadManager().startDownloadManger(getApplicationContext(), taskDao, downloadTask, getInputData().getLong(ARG_CALLBACK_HANDLE, 0), debug);
         }
